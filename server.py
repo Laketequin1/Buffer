@@ -4,5 +4,6 @@ main_server = lakeserver.Server(5050)
 
 main_server.start()
 
-input("Press enter to close...")
-
+while True:
+    main_server.set_data(main_server.get_client_data())
+    print(main_server.get_data(), main_server.get_client_data())
