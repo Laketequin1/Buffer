@@ -164,7 +164,5 @@ while running:
     main_player.display() # Display player
     
     pygame.display.flip() # Update screen
-    
-    print(my_client.get_data())
 
 my_client.disconnect()

@@ -11,7 +11,7 @@ class SockStreamConnection:
     def eval_message(self, message): # Changes string recieved to a dict
         try:
             return ast.literal_eval(message) # Converts data string into dict
-        except Exception:
+        except ValueError:
             self.warn(f"Error: Unable to eval message recieved") # If error
             return "" # Return empty
 
@@ -100,6 +100,8 @@ class Server(SockStreamConnection):
     def start(self, start_accept_clients=True):
         if not self.active:
             self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Creates server on "INET", and sock stream means we are streaming data
+            self.server.connect((self.SERVER_IP, self.PORT)) # Connect to possible existing server
+            self.server.close() # Close possible existing server
             self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # Allows server to be reused after shutdown
             self.server.bind(self.ADDR) # Binds address to server
             
@@ -146,7 +148,7 @@ class Server(SockStreamConnection):
             
             self.active_clients += 1 # One more active connection
             
-            self.info(f"Active Clients: {self.active_clients}") # Prints how many connections we have on the server
+            self.info(f"Client Event: Connected") # Prints client =connected
         
         self.info(f"New Connections: Deny") # Print that connection handler shutdown
     
@@ -188,9 +190,17 @@ class Server(SockStreamConnection):
                 self.add_command("disconnect") # Add command to data
                 connected = False # End thread
             
-            self.send_message(f"{self.data}", client_conn) # Sends message with server data
+            try:
+                self.send_message(f"{self.data}", client_conn) # Sends message with server data
+            except ConnectionResetError: # If trying to send message returns it is not active
+                self.warn("Error: Client disconnected without commanding disconnect. Disconnecting client.") # Error
+                connected = False # End thread
             
-            client_message = self.recieve_message(client_conn) # Runs recieve message function, and gets message
+            try:
+                client_message = self.recieve_message(client_conn) # Runs recieve message function, and gets message
+            except ConnectionResetError: # If trying to recieve message returns it is not active
+                self.warn("Error: Client disconnected without commanding disconnect. Disconnecting client.") # Error
+                connected = False # End thread
             
             if client_message: # If message recieved has a value
                 for command in client_message['commands']: # Go through every command
@@ -202,7 +212,7 @@ class Server(SockStreamConnection):
         del self.client_data[client_addr] # Remove persons data from server data
         self.active_clients -= 1 # Remove one number from active connections
         
-        self.info(f"Active Clients: {self.active_clients}") # Prints how many connections we have on the server
+        self.info(f"Client Event: Disconnected") # Prints client disconnected
         
         client_conn.close() # Closes the connection between the client
     
@@ -229,17 +239,6 @@ class Server(SockStreamConnection):
     
     def get_number_of_active_clients(self): # Return number of clients connected to the server
         return self.active_clients
-    
-    def get_all_outputs_enabled(self): # Return True if warnings and info are both enabled
-        if self.show_info and self.show_warnings: # If both warning and info enabled
-            return True # Return True
-        return False # Else return False
-    
-    def get_info_enabled(self): # Return if info enabled or not
-        return self.show_info
-    
-    def get_warnings_enabled(self): # Return if info enabled or not
-        return self.show_warnings
 
 
 class Client(SockStreamConnection):
@@ -269,7 +268,13 @@ class Client(SockStreamConnection):
     def connect(self): # Connect to server
         if not self.active: # If not already connected
             self.server_conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Connects client to INET, streaming data
-            self.server_conn.connect(self.ADDR) # Binds connected address to above
+            
+            try:
+                self.server_conn.connect(self.ADDR) # Binds connected address to above
+            except ConnectionRefusedError: # Could not connect to server as it will not accept client
+                self.warn(f"Error: Could not connect to server as it is not accepting clients") # Error
+            except TimeoutError: # Server does not exist
+                self.warn(f"Error: Could not connect to server as it does not exist") # Error
             
             self.data = {'commands':[], 'data':""} # Stores the commands and data being sent to server
             self.server_data = "" # Stores the data recieved from the server
@@ -307,6 +312,7 @@ class Client(SockStreamConnection):
     def handle_server(self):
         connected = True
         while connected:
+            
             server_message = self.recieve_message() # Waits to recieve message
             
             if server_message: # If message recieved has a value
@@ -317,7 +323,7 @@ class Client(SockStreamConnection):
                         
                         self.info(f"Status: Disconnecting") # Print client is disconnecting
                         
-                self.server_data = server_message['data'] # Store data in its spcific IP                
+                self.server_data = self.eval_message(server_message['data']) # Store server data as a dict
             
             if self.do_disconnect: # If client disconnecting
                 self.add_command("disconnect") # Add command to server
@@ -337,7 +343,10 @@ class Client(SockStreamConnection):
     
     ##### -- Get -- #####
     
-    def get_commands(self): # Return server commands
+    def get_server_data(self): # Return server data recieved
+        return self.server_data
+    
+    def get_commands(self): # Return client commands
         return self.data['commands']
     
     def get_ip(self): # Return client IP
@@ -348,6 +357,3 @@ class Client(SockStreamConnection):
     
     def get_server_port(self): # Return server PORT
         return self.PORT
-    
-    def get_number_of_active_clients(self): # Return number of clients connected to the server
-        return self.active_clients
