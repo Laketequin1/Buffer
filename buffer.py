@@ -1,6 +1,6 @@
 ##### -- Imports -- #####
 
-import pygame, random, os # Imports
+import pygame, time, socket, random, os, ast # Imports
 
 from src import lakeserver # Import personal server
 
@@ -10,7 +10,7 @@ pygame.init() # Initiate pygame
 
 AUDIO_FOLDER = "audio/" # The folder location that holds all the sound files
 IMAGE_FOLDER = "images/" # The folder location that holds all the image files
-ICON_FOLDER = IMAGE_FOLDER+"icons/" # The folder location that holds all the images of icons
+ICON_FOLDER = IMAGE_FOLDER + "icons/" # The folder location that holds all the images of icons
 
 ##### -- Variables -- #####
 
@@ -31,7 +31,7 @@ display_surface = pygame.display.set_mode(display_size, pygame.RESIZABLE) #Surfa
 
 class sprite: # Stores all image sprites
     player = pygame.image.load(IMAGE_FOLDER + "player.png") # Loads player image
-    player = pygame.image.load(IMAGE_FOLDER + "enemy.png") # Loads player image
+    enemy = pygame.image.load(IMAGE_FOLDER + "enemy.png") # Loads player image
 
 ##### -- Server -- #####
 
@@ -132,7 +132,7 @@ class Entity(): # An Inheritied class for all entities
     
     #### -- Get -- ####
     
-    def get_pos(self, pos): # Set entity pos
+    def get_pos(self): # Set entity pos
         return self.pos
     
     #### -- Display -- ####
@@ -143,6 +143,20 @@ class Entity(): # An Inheritied class for all entities
 
 class Player(Entity): # Inherit entity class
     pass
+
+##### -- Functions -- #####
+
+def eval_message(message): # Changes string recieved to a dict\
+    if message:
+        try:
+            return ast.literal_eval(message) # Converts data string into dict
+        except ValueError:
+            pass # Continue to return empty
+    return "" # Return empty
+
+def display_enemy(pos):
+    if type(pos) == list:
+        display_surface.blit(sprite.enemy, pos) # Draw image
 
 main_player = Player(sprite.player, [0, 0]) # Create a player
 
@@ -159,10 +173,17 @@ while running:
     main_player.move()
     main_player.bind()
     
+    my_client.set_data(main_player.get_pos())
+    
     display_surface.fill((230, 230, 255)) # Blue screen
+    
+    for enemy_pos in my_client.get_server_data().values():
+        enemy_pos = eval_message(enemy_pos)
+        display_enemy(enemy_pos)
     
     main_player.display() # Display player
     
     pygame.display.flip() # Update screen
 
 my_client.disconnect()
+time.sleep(0.1)
