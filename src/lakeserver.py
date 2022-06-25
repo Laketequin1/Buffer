@@ -228,7 +228,9 @@ class Server(SockStreamConnection):
     ##### -- Client Handling -- #####
     
     def direct_recieve(self, client_conn): # Recieve message from a client
-        return self.eval_message(client_conn.recv(self.HEADER).decode(self.FORMAT)) # Waits for message and decodes from format, then evals
+        f = client_conn.makefile('rb')
+        data = f.read(self.HEADER).decode(self.FORMAT)
+        return self.eval_message(data) # Waits for message and decodes from format, then evals
     
     def direct_send(self, client_conn, message): # Send a client connected with direct a message
         try: # Can cause error
@@ -440,7 +442,9 @@ class Client(SockStreamConnection):
     ### -- Server Handling -- ###
     
     def direct_recieve(self): # Recieves message from a client
-        return self.eval_message(self.server_conn.recv(self.HEADER).decode(self.FORMAT)) # Waits for message lenght of next message and decodes from format
+        f = self.server_conn.makefile('rb')
+        data = f.read(self.HEADER).decode(self.FORMAT)
+        return self.eval_message(data) # Waits for message lenght of next message and decodes from format
     
     def direct_send(self, message): # Send message to a client
         self.pre_send_update() # Handle server data with function
