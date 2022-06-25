@@ -35,7 +35,7 @@ class sprite: # Stores all image sprites
 
 ##### -- Server -- #####
 
-my_client = lakeserver.Client(input("IP: "), 5050)
+my_client = lakeserver.Client(input("IP: "), 5050, True)
 my_client.connect()
 
 ##### -- Class -- #####
