@@ -35,7 +35,7 @@ class sprite: # Stores all image sprites
 
 ##### -- Server -- #####
 
-my_client = lakeserver.Client(input("IP: "), 5050, True)
+my_client = lakeserver.Client(input("IP: "), 5050, True, header=2048)
 my_client.connect()
 
 ##### -- Class -- #####
@@ -146,7 +146,7 @@ class Player(Entity): # Inherit entity class
 
 ##### -- Functions -- #####
 
-def eval_message(message): # Changes string recieved to a dict\
+def eval_message(message): # Changes string recieved to a dict
     if message:
         try:
             return ast.literal_eval(message) # Converts data string into dict
@@ -173,12 +173,11 @@ while running:
     main_player.move()
     main_player.bind()
     
-    my_client.set_data(main_player.get_pos())
+    my_client.direct_send(main_player.get_pos())
     
     display_surface.fill((230, 230, 255)) # Blue screen
     
     for enemy_pos in my_client.get_server_data().values():
-        enemy_pos = eval_message(enemy_pos)
         display_enemy(enemy_pos)
     
     main_player.display() # Display player
