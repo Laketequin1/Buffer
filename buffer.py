@@ -186,5 +186,4 @@ while running:
     
     clock.tick(DEFAULT_TICK) # Tick Speed
 
-my_client.disconnect()
 time.sleep(0.1)
