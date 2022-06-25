@@ -1,5 +1,4 @@
-import socket, threading, ast # Imports for client and server
-import time # Debug imports
+import socket, threading, ast, time # Imports for client and server
 
 class SockStreamConnection:
     
@@ -228,7 +227,10 @@ class Server(SockStreamConnection):
     ##### -- Client Handling -- #####
     
     def direct_recieve(self, client_conn): # Recieve message from a client
-        return self.eval_message(client_conn.recv(self.HEADER).decode(self.FORMAT)) # Waits for message and decodes from format, then evals
+        #s = client_conn.recv(2048).decode(self.FORMAT)
+        f = client_conn.makefile('rb')
+        data = f.read(1024).decode(self.FORMAT)
+        return self.eval_message(data) # Waits for message and decodes from format, then evals
     
     def direct_send(self, client_conn, message): # Send a client connected with direct a message
         try: # Can cause error
@@ -440,14 +442,18 @@ class Client(SockStreamConnection):
     ### -- Server Handling -- ###
     
     def direct_recieve(self): # Recieves message from a client
-        return self.eval_message(self.server_conn.recv(self.HEADER).decode(self.FORMAT)) # Waits for message lenght of next message and decodes from format
+        #return self.eval_message(self.server_conn.recv(self.HEADER).decode(self.FORMAT)) # Waits for message lenght of next message and decodes from format
+    
+        f = self.server_conn.makefile('rb')
+        data = f.read(1024).decode(self.FORMAT)
+        return self.eval_message(data) # Waits for message and decodes from format, then evals
     
     def direct_send(self, message): # Send message to a client
         self.pre_send_update() # Handle server data with function
         
         message = "{'commands':" + str(self.get_commands()) + ", 'data':" + str(message) + "}" # Format message for data
         
-        try: # Recieve can cause error
+        try: # Send can cause error
             encoded_message = message.encode(self.FORMAT) # Encodes message
             encoded_message += b' ' * (self.HEADER - len(encoded_message)) # Adds blanks to the end to make the encoded_message the right size
             self.server_conn.send(encoded_message) # Sends the message in encoded format

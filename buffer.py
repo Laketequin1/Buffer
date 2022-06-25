@@ -22,7 +22,7 @@ pos = (0, 0) # Player position
 GAME_SIZE = (1280, 720)
 SCREEN_SIZE = (pygame.display.Info().current_w, pygame.display.Info().current_h) #Gets computer screen resolution
 
-DEFAULT_TICK = 160 #FPS
+DEFAULT_TICK = 60 #FPS
 
 display_size = GAME_SIZE #Sets screen resolution (x, y)
 
@@ -73,13 +73,13 @@ class Entity(): # An Inheritied class for all entities
         key = pygame.key.get_pressed()
 
         if key[pygame.K_a]:
-            self.set_left(pos[0] - 2)
+            self.set_left(pos[0] - 5)
         if key[pygame.K_d]:
-            self.set_left(pos[0] + 2)
+            self.set_left(pos[0] + 5)
         if key[pygame.K_w]:
-            self.set_top(pos[1] - 2)
+            self.set_top(pos[1] - 5)
         if key[pygame.K_s]:
-            self.set_top(pos[1] + 2)
+            self.set_top(pos[1] + 5)
             
         self.set_pos(pos)
     
