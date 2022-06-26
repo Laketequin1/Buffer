@@ -1,2 +1,0 @@
-python buffer.py
-pause
