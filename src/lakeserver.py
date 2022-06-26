@@ -14,8 +14,7 @@ class SockStreamConnection:
             try:
                 return ast.literal_eval(message) # Converts data string into dict
             except ValueError:
-                self.warn(f"Error: Unable to eval message recieved") # If error
-                pass # Continue to return empty
+                self.warn("Error: Unable to eval message recieved")
         return "" # Return empty
 
     def post_recieve_update(self, message): # Runs the function for after recieved a message, needs to take the message variable, and return final changed data
@@ -101,9 +100,7 @@ class SockStreamConnection:
         return self.data['data']
     
     def get_all_outputs_enabled(self): # Return True if warnings and info are both enabled
-        if self.show_info and self.show_warnings: # If both warning and info enabled
-            return True # Return True
-        return False # Else return False
+        return bool(self.show_info and self.show_warnings)
     
     def get_info_enabled(self): # Return if info enabled or not
         return self.show_info
@@ -174,48 +171,50 @@ class Server(SockStreamConnection):
             self.connection_handler_thread.daemon = True  # Dies when main thread (only non-daemon thread) exits
             self.connection_handler_thread.start() # Starts thread
         elif self.shutdown:
-            self.warn(f"Error: Cannot accept clients because server is shutting down") # Error
+            self.warn("Error: Cannot accept clients because server is shutting down")
         else:
-            self.warn(f"Error: Cannot accept clients because server is already accepting clients") # Error
+            self.warn(
+                "Error: Cannot accept clients because server is already accepting clients"
+            )
     
     def connection_handler(self, direct):
         self.server.listen() # Activates server, and will listen for pings
-        
-        self.info(f"New Connections: Allow") # Prints that server is active
-        
+
+        self.info("New Connections: Allow")
+
         while True: # Continually adds new connections
             try:
                 client_conn, client_addr = self.server.accept() # Waits for a new connection to join the server and gets IP
             except OSError: # If server.accept() raised error because server closed
                 break # Exit connection handler
-            
+
             if direct:
                 thread = threading.Thread(target=self.handle_client_direct, args=(client_conn, client_addr)) # Creates a new thread for this specific connection, with handle_client_direct()
             else:
                 thread = threading.Thread(target=self.handle_client_echo, args=(client_conn, client_addr)) # Creates a new thread for this specific connection, with handle_client_echo()
-            
+
             thread.daemon = True  # Dies when main thread (only non-daemon thread) exits
             thread.start() # Starts thread
-            
+
             self.active_clients += 1 # One more active connection
-            
-            self.info(f"Client Event: Connected") # Prints client =connected
-        
-        self.info(f"New Connections: Deny") # Print that connection handler shutdown
+
+            self.info("Client Event: Connected")
+
+        self.info("New Connections: Deny")
     
     def handle_shutdown(self):
         if self.active:
-            self.info(f"Status: Starting Shutdown") # Server shutdown
+            self.info("Status: Starting Shutdown")
             while True: # Loop forever
                 if self.active_clients == 0: # If no more clients connected
                     self.server.close() # Close server
                     self.active = False # Server closed
-                    
+
                     break # End thread
-            
-            self.info(f"Status: Shutdown") # Server shutdown
+
+            self.info("Status: Shutdown")
         else:
-            self.warn(f"Error: Could not shutdown server as it is not online") # Error
+            self.warn("Error: Could not shutdown server as it is not online")
     
     def server_addr_avalible(self): # Check if ip and port is already connected to a server
         try: # Will cause error if no external server
@@ -265,37 +264,36 @@ class Server(SockStreamConnection):
     def handle_client_direct(self, client_conn, client_addr): # Given a thread for each connection, gets the clients IP, directly messages client
         self.client_data[client_addr] = "" # Adds this client to the client_data list with no data
         self.client_conn[client_addr] = client_conn # Stores connection of client
-        
+
         client_message = ""
         connected = True
         while connected:
             if self.do_shutdown: # If server shutting down
                 connected = False # End thread
-            
+
             try: # Can cause error
                 client_message = self.direct_recieve(client_conn) # Recieve
-            except ConnectionResetError: # If trying to send/recieve message returns it is not active
-                self.warn(f"Error: Client disconnected without commanding disconnect, can not recieve message. Disconnecting client.") # Error
+            except (ConnectionResetError, ConnectionAbortedError): # If trying to send/recieve message returns it is not active
+                self.warn(
+                    "Error: Client disconnected without commanding disconnect, can not recieve message. Disconnecting client."
+                )
+
                 connected = False # End thread
-            except ConnectionAbortedError: # If trying to send/recieve message returns it is not active
-                self.warn(f"Error: Client disconnected without commanding disconnect, can not recieve message. Disconnecting client.") # Error
-                connected = False # End thread
-            
             if client_message: # If message recieved has a value
                 client_message = self.post_recieve_update(client_message) # Handle client messsage with function
-                
+
                 for command in client_message['commands']: # Go through every command
                     if command == "disconnect": # If command disconnect
                         connected = False # End thread
-                        
-                self.client_data[client_addr] = client_message['data'] # Store data in its spcific IP                
-        
+
+                self.client_data[client_addr] = client_message['data'] # Store data in its spcific IP
+
         del self.client_conn[client_addr] # Remove clients conn from data
         del self.client_data[client_addr] # Remove persons data from server data
         self.active_clients -= 1 # Remove one number from active connections
-        
-        self.info(f"Client Event: Disconnected") # Prints client disconnected
-        
+
+        self.info("Client Event: Disconnected")
+
         client_conn.close() # Closes the connection between the client
     
     def recieve_message(self, client_conn): # Recieves message from a client
@@ -318,41 +316,40 @@ class Server(SockStreamConnection):
     def handle_client_echo(self, client_conn, client_addr): # Given a thread for each connection, gets the clients IP, messages client through echos
         self.client_data[client_addr] = "" # Adds this client to the client_data list with no data
         self.client_conn[client_addr] = client_conn # Stores connection of client
-        
+
         client_message = ""
         connected = True
         while connected:
             if self.do_shutdown: # If server shutting down
                 self.add_command("disconnect") # Add command to data
                 connected = False # End thread
-            
+
             self.pre_send_update() # Handle server data with function
-            
+
             try: # Can cause error
                 self.send_message(f"{self.data}", client_conn) # Sends message with server data
                 client_message = self.recieve_message(client_conn) # Runs recieve message function, and gets message
-            except ConnectionResetError: # If trying to send/recieve message returns it is not active
-                self.warn(f"Error: Client disconnected without commanding disconnect. Disconnecting client.") # Error
+            except (ConnectionResetError, ConnectionAbortedError): # If trying to send/recieve message returns it is not active
+                self.warn(
+                    "Error: Client disconnected without commanding disconnect. Disconnecting client."
+                )
+
                 connected = False # End thread
-            except ConnectionAbortedError: # If trying to send/recieve message returns it is not active
-                self.warn(f"Error: Client disconnected without commanding disconnect. Disconnecting client.") # Error
-                connected = False # End thread
-            
             if client_message: # If message recieved has a value
                 client_message = self.post_recieve_update(client_message) # Handle client messsage with function
-                
+
                 for command in client_message['commands']: # Go through every command
                     if command == "disconnect": # If command disconnect
                         connected = False # End thread
-                        
-                self.client_data[client_addr] = client_message['data'] # Store data in its spcific IP                
-        
+
+                self.client_data[client_addr] = client_message['data'] # Store data in its spcific IP
+
         del self.client_conn[client_addr] # Remove clients conn from data
         del self.client_data[client_addr] # Remove persons data from server data
         self.active_clients -= 1 # Remove one number from active connections
-        
-        self.info(f"Client Event: Disconnected") # Prints client disconnected
-        
+
+        self.info("Client Event: Disconnected")
+
         client_conn.close() # Closes the connection between the client
     
     ##### -- Action -- #####
@@ -393,21 +390,21 @@ class Client(SockStreamConnection):
         self.HEADER = header # Size of header before data sent
         self.FORMAT = format # Format of text being sent
         self.DIRECT = direct # Is direct
-        
+
         self.CLIENT_IP = socket.gethostbyname(socket.gethostname()) # Computer IP (LAN)
         self.ADDR = (self.SERVER_IP, self.PORT) # Server address
-        
+
         self.pre_send_func = pre_send_func # By default no function being run before send
         self.post_recieve_func = post_recieve_func # By default no function being run after recieve
-        
+
         self.data = {'commands':[], 'data':""} # Stores the commands and data being sent to server
         self.server_data = {} # Stores the data recieved from the server
 
         self.active = False # Client not connected
         self.do_disconnect = False # Not disconnected
         self.enable_outputs(outputs_enabled) # Outputs active
-        
-        self.info(f"Status: Ready") # Prints that client is ready to start
+
+        self.info("Status: Ready")
     
     ### -- Client Handling -- ###
     
@@ -477,26 +474,29 @@ class Client(SockStreamConnection):
             try: # Recieve can cause error
                 server_message = self.direct_recieve() # Waits to recieve message
             except ConnectionResetError: # If trying to recieve message returns it is not active
-                self.warn(f"Error: Server disconnected without commanding disconnect, can not recieve message. Disconnecting client.") # Error
-                self.info(f"Status: Disconnecting") # Print client is disconnecting
+                self.warn(
+                    "Error: Server disconnected without commanding disconnect, can not recieve message. Disconnecting client."
+                )
+
+                self.info("Status: Disconnecting")
                 break # Leave loop
-            
+
             if server_message: # If message recieved has a value
                 server_message = self.post_recieve_update(server_message) # Handle server messsage with function
-                
+
                 for command in server_message['commands']: # Go through every command
                     if command == "disconnect": # If command disconnect
                         self.do_disconnect = True # Disconnect
-                        
+
                 self.server_data = server_message['data'] # Store server data as a dict
-            
+
             if self.do_disconnect: # If client disconnecting
                 connected = False # End thread
-                
-                self.info(f"Status: Disconnecting") # Print client is disconnecting
-        
+
+                self.info("Status: Disconnecting")
+
         self.active = False # Disconnected
-        self.info(f"Status: Disconnected") # Print client has disconnected
+        self.info("Status: Disconnected")
     
     def recieve_message(self): # Recieves message from a client
         client_message_length = self.server_conn.recv(self.HEADER).decode(self.FORMAT) # Waits for message lenght of next message and decodes from format
@@ -523,34 +523,40 @@ class Client(SockStreamConnection):
             try: # Recieve can cause error
                 server_message = self.recieve_message() # Waits to recieve message
             except ConnectionResetError: # If trying to recieve message returns it is not active
-                self.warn(f"Error: Server disconnected without commanding disconnect. Disconnecting client.") # Error
+                self.warn(
+                    "Error: Server disconnected without commanding disconnect. Disconnecting client."
+                )
+
                 break # Leave loop
-            
+
             if server_message: # If message recieved has a value
                 server_message = self.post_recieve_update(server_message) # Handle server messsage with function
-                
+
                 for command in server_message['commands']: # Go through every command
                     if command == "disconnect": # If command disconnect
                         self.do_disconnect = True # Disconnect
-                        
+
                 self.server_data = self.eval_message(server_message['data']) # Store server data as a dict
-            
+
             if self.do_disconnect: # If client disconnecting
                 connected = False # End thread
-                
-                self.info(f"Status: Disconnecting") # Print client is disconnecting
-            
+
+                self.info("Status: Disconnecting")
+
             self.pre_send_update() # Handle server data with function
-            
+
             try: # Send can cause error
                 self.send_message(f"{self.data}") # Sends message data
             except ConnectionResetError: # If trying to recieve message returns it is not active
-                self.warn(f"Error: Server disconnected without commanding disconnect. Disconnecting client.") # Error
-                self.info(f"Status: Disconnecting") # Print client is disconnecting
+                self.warn(
+                    "Error: Server disconnected without commanding disconnect. Disconnecting client."
+                )
+
+                self.info("Status: Disconnecting")
                 break # Leave loop
-        
+
         self.active = False # Disconnected
-        self.info(f"Status: Disconnected") # Print client has disconnected
+        self.info("Status: Disconnected")
     
     ##### -- Action -- #####
     
