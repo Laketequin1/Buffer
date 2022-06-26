@@ -18,7 +18,8 @@ class SockStreamConnection:
         return ""  # Return empty
 
     def post_recieve_update(self,
-                            message):  # Runs the function for after recieved a message, needs to take the message variable, and return final changed data
+                            message):  # Runs the function for after recieved a message, needs to take the message
+        # variable, and return final changed data
         if callable(self.post_recieve_func):  # If variable a function
             try:
                 return self.post_recieve_func(self, message)  # Run function
@@ -118,7 +119,7 @@ class Server(SockStreamConnection):
     ##### -- Init -- #####
 
     def __init__(self, port, direct=False, outputs_enabled=True, header=64, format='utf-8', pre_send_func=None,
-                 post_recieve_func=None):  # Default: header is 64 bytes long, format is utf-8, no functions
+                 post_receive_func=None):  # Default: header is 64 bytes long, format is utf-8, no functions
         self.PORT = port  # Port
         self.HEADER = header  # Size of header before data sent
         self.FORMAT = format  # Format of text being sent
@@ -128,7 +129,7 @@ class Server(SockStreamConnection):
         self.ADDR = (self.SERVER_IP, self.PORT)  # Server address
 
         self.pre_send_func = pre_send_func  # By default no function being run before send
-        self.post_recieve_func = post_recieve_func  # By default no function being run after recieve
+        self.post_recieve_func = post_receive_func  # By default no function being run after recieve
 
         self.data = {'commands': [], 'data': ""}  # Stores the commands and data that will be sent to all computers
         self.client_conn = {}  # Stores all connections of clients
@@ -165,7 +166,7 @@ class Server(SockStreamConnection):
             self.info(f"Status: Ready")  # Prints that server is ready to start
 
             if start:
-                self.accept_clients(self.DIRECT)
+                self.accept_clients()
         else:
             if self.active:
                 self.warn(f"Error: Server is currently active, shutdown the server before starting")
@@ -173,10 +174,9 @@ class Server(SockStreamConnection):
                 self.warn(
                     f"Error: Server is currently active in other code on computer, shutdown the other server before starting")
 
-    def accept_clients(self, direct):
+    def accept_clients(self):
         if not self.do_shutdown and not self.accepting_clients:  # If server not shutting down and server not accepting clients
-            self.connection_handler_thread = threading.Thread(target=self.connection_handler, args=(
-            direct,))  # Creates a new thread for this specific connection, with handle_client_echo()
+            self.connection_handler_thread = threading.Thread(target=self.connection_handler)  # Creates a new thread for this specific connection, with handle_client_echo()
             self.connection_handler_thread.daemon = True  # Dies when main thread (only non-daemon thread) exits
             self.connection_handler_thread.start()  # Starts thread
         elif self.shutdown:
@@ -186,7 +186,7 @@ class Server(SockStreamConnection):
                 "Error: Cannot accept clients because server is already accepting clients"
             )
 
-    def connection_handler(self, direct):
+    def connection_handler(self):
         self.server.listen()  # Activates server, and will listen for pings
 
         self.info("New Connections: Allow")
@@ -197,7 +197,7 @@ class Server(SockStreamConnection):
             except OSError:  # If server.accept() raised error because server closed
                 break  # Exit connection handler
 
-            if direct:
+            if self.DIRECT:
                 thread = threading.Thread(target=self.handle_client_direct, args=(client_conn,
                                                                                   client_addr))  # Creates a new thread for this specific connection, with handle_client_direct()
             else:
@@ -289,7 +289,8 @@ class Server(SockStreamConnection):
             try:  # Can cause error
                 client_message = self.direct_recieve(client_conn)  # Recieve
             except (
-            ConnectionResetError, ConnectionAbortedError):  # If trying to send/recieve message returns it is not active
+                    ConnectionResetError,
+                    ConnectionAbortedError):  # If trying to send/recieve message returns it is not active
                 self.warn(
                     "Error: Client disconnected without commanding disconnect, can not recieve message. Disconnecting client."
                 )
@@ -351,7 +352,8 @@ class Server(SockStreamConnection):
                 self.send_message(f"{self.data}", client_conn)  # Sends message with server data
                 client_message = self.recieve_message(client_conn)  # Runs recieve message function, and gets message
             except (
-            ConnectionResetError, ConnectionAbortedError):  # If trying to send/recieve message returns it is not active
+                    ConnectionResetError,
+                    ConnectionAbortedError):  # If trying to send/recieve message returns it is not active
                 self.warn(
                     "Error: Client disconnected without commanding disconnect. Disconnecting client."
                 )
