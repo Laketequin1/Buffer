@@ -228,8 +228,14 @@ class Server(SockStreamConnection):
     ##### -- Client Handling -- #####
     
     def direct_recieve(self, client_conn): # Recieve message from a client
-        f = client_conn.makefile('rb')
-        data = f.read(self.HEADER).decode(self.FORMAT)
+        recv_length = 0
+        data = ""
+        
+        while self.HEADER - recv_length > 0:
+            recv_data = client_conn.recv(self.HEADER - recv_length).decode(self.FORMAT)
+            data += recv_data
+            recv_length = len(data)
+        
         return self.eval_message(data) # Waits for message and decodes from format, then evals
     
     def direct_send(self, client_conn, message): # Send a client connected with direct a message
@@ -442,9 +448,15 @@ class Client(SockStreamConnection):
     ### -- Server Handling -- ###
     
     def direct_recieve(self): # Recieves message from a client
-        f = self.server_conn.makefile('rb')
-        data = f.read(self.HEADER).decode(self.FORMAT)
-        return self.eval_message(data) # Waits for message lenght of next message and decodes from format
+        recv_length = 0
+        data = ""
+        
+        while self.HEADER - recv_length > 0:
+            recv_data = self.server_conn.recv(self.HEADER - recv_length).decode(self.FORMAT)
+            data += recv_data
+            recv_length = len(data)
+        
+        return self.eval_message(data) # Waits for message and decodes from format, then evals
     
     def direct_send(self, message): # Send message to a client
         self.pre_send_update() # Handle server data with function
